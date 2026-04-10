@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: supachat-backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - PORT=8000
+      # These will override .env values if set in EC2 environment
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist logs for monitoring/debugging
+      - ./logs:/app/logs
+      # Mount .env for hot reload (optional, remove in production)
+      - ./.env:/app/.env:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    networks:
+      - supachat-net
+
+  # Optional: Add monitoring stack (uncomment if needed)
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: supachat-prometheus
+  #   restart: always
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus-data:/prometheus
+  #   networks:
+  #     - supachat-net
+  #
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: supachat-grafana
+  #   restart: always
+  #   ports:
+  #     - "3001:3000"
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+  #   networks:
+  #     - supachat-net
+
+networks:
+  supachat-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  prometheus-data:
+  grafana-data:
